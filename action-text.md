@@ -6,7 +6,7 @@
 
 ## Sanitizer Configuration in Production
 
-**PR**: [[#873](https://github.com/basecamp/fizzy/pull/873)](https://github.com/basecamp/fizzy/pull/873)
+**PR**: [#873](https://github.com/basecamp/fizzy/pull/873)
 
 **Problem**: In production with eager loading enabled, Action Text's default sanitizer config doesn't automatically inherit from your custom Rails sanitizer settings. This means tags/attributes you've whitelisted for the rest of your app won't work in Action Text content.
 
@@ -46,7 +46,7 @@ end
 
 ## 2. Custom HTML Processing at Render Time
 
-**PR**: [[#564](https://github.com/basecamp/fizzy/pull/564)](https://github.com/basecamp/fizzy/pull/564)
+**PR**: [#564](https://github.com/basecamp/fizzy/pull/564)
 
 **Pattern**: Override Action Text's content layout to apply custom HTML transformations (like autolinking) at render time, not at save time.
 
@@ -182,7 +182,7 @@ end
 
 ## 3. Link Retargeting for Turbo Frame Escaping
 
-**PR**: [[#564](https://github.com/basecamp/fizzy/pull/564)](https://github.com/basecamp/fizzy/pull/564)
+**PR**: [#564](https://github.com/basecamp/fizzy/pull/564)
 
 **Pattern**: Use a Stimulus controller to automatically retarget links in rich text content based on domain.
 
@@ -224,7 +224,7 @@ Apply to your rich text content:
 
 ## 4. Graceful Handling of Malformed Attachments
 
-**PR**: [[#1859](https://github.com/basecamp/fizzy/pull/1859)](https://github.com/basecamp/fizzy/pull/1859)
+**PR**: [#1859](https://github.com/basecamp/fizzy/pull/1859)
 
 **Problem**: Action Text remote image attachments can fail to render if they have malformed URLs or missing attributes, causing the entire page to error.
 
@@ -410,7 +410,7 @@ end
 
 ## 8. Rich Text Applied to Forms (Edge Case)
 
-**PR**: [[#912](https://github.com/basecamp/fizzy/pull/912)](https://github.com/basecamp/fizzy/pull/912)
+**PR**: [#912](https://github.com/basecamp/fizzy/pull/912)
 
 **Problem**: When applying `.rich-text-content` CSS to a form containing Action Text fields, the styles may not apply to newly created records until the page refreshes.
 
