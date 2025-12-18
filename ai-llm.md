@@ -6,7 +6,9 @@
 
 ## Command Pattern with STI ([#460](https://github.com/basecamp/fizzy/pull/460), [#464](https://github.com/basecamp/fizzy/pull/464), [#466](https://github.com/basecamp/fizzy/pull/466))
 
-Use Single Table Inheritance for command objects:
+**Context**: "Fizzy Do" is a command palette that lets users perform actions by typing commands like `/assign @kevin`, `/close`, `/tag bug`. Commands are persisted to enable undo functionality and command history.
+
+**Pattern**: Use Single Table Inheritance for command objects. Each command type (Assign, Close, Tag) inherits from a base `Command` class, storing type-specific data in a JSON column.
 
 ```ruby
 # Base command class
@@ -69,11 +71,16 @@ class Command::Assign < Command
 end
 ```
 
-**Key insight**: Commands save themselves AFTER execution, not before. Validates during parsing but only persists successful executions.
+**Key insights**:
+- Commands save themselves AFTER execution, not before—validates during parsing but only persists successful executions
+- `store_accessor` on a JSON column stores command-specific data (assignee IDs, toggled state for undo)
+- The `undo!` method wraps `undo` + `destroy` in a transaction for atomic rollback
 
 ## Context Objects for Parsing ([#460](https://github.com/basecamp/fizzy/pull/460))
 
-Extract URL context for command awareness:
+**Problem**: Commands like `/assign` need to know which cards to operate on. The target cards depend on where the user is—viewing a single card, or a filtered list of cards.
+
+**Solution**: Extract URL context so commands are aware of the current page:
 
 ```ruby
 class Command::Parser::Context
@@ -106,11 +113,13 @@ class Command::Parser::Context
 end
 ```
 
-Use `Rails.application.routes.recognize_path` to extract controller/action/params from URL strings.
+**Key technique**: `Rails.application.routes.recognize_path` extracts controller/action/params from URL strings, letting you programmatically understand what page the user is viewing.
 
 ## Cost Tracking in Microcents ([#978](https://github.com/basecamp/fizzy/pull/978))
 
-Track LLM costs precisely using microcents (1/1,000,000 of a dollar):
+**Problem**: LLM API costs are tiny per-request but add up. You need precise tracking for budgeting and per-feature cost analysis.
+
+**Solution**: Track costs in microcents (1/1,000,000 of a dollar) to avoid floating-point precision issues:
 
 ```ruby
 def summarize
@@ -127,11 +136,13 @@ Event::ActivitySummary.create!(
 )
 ```
 
-Naming: Use `_in_` particle for unit clarity: `cost_in_microcents` not `cost_microcents`.
+**Naming convention**: Use `_in_` particle for unit clarity: `cost_in_microcents` not `cost_microcents`. This was renamed across the entire codebase for consistency.
 
 ## Result Objects for Responses ([#460](https://github.com/basecamp/fizzy/pull/460), [#857](https://github.com/basecamp/fizzy/pull/857))
 
-Use lightweight result objects instead of coupling to HTTP:
+**Problem**: Commands can result in different outcomes—redirects, modals, refreshes. Coupling commands directly to HTTP responses makes them hard to test and reuse.
+
+**Solution**: Use lightweight result objects that controllers can pattern-match on:
 
 ```ruby
 Command::Result::Redirection = Struct.new(:url)
@@ -151,7 +162,13 @@ def respond_with_execution_result(result)
 end
 ```
 
+**Why `ShowModal`?**: "Fizzy Ask" opens a chat modal where users can have a conversation with an LLM. The command parser returns a `ShowModal` result, and the controller renders JSON that tells the frontend which Turbo Frame to load.
+
 ## Tool Pattern for LLM Function Calling ([#857](https://github.com/basecamp/fizzy/pull/857))
+
+**Context**: "Fizzy Ask" is an LLM-powered chat interface for exploring cards, comments, and users through natural conversation. The LLM accesses data through tools (similar to function calling).
+
+**Pattern**: Tools are like controllers for LLM interactions—they gather data and produce responses:
 
 ```ruby
 class Ai::Tool < RubyLLM::Tool
@@ -206,9 +223,16 @@ class Ai::ListCardsTool < Ai::Tool
 end
 ```
 
-**Key insight**: User-scoped tools prevent data leakage.
+**Key insights**:
+- User-scoped tools prevent data leakage—always initialize tools with the current user
+- Tools handle pagination to avoid overwhelming the LLM context window
+- The interface is intentionally simple; view-layer serialization lives in the tool for now, with plans to extract it when building a proper API
 
 ## Confirmation Pattern for Bulk Operations ([#464](https://github.com/basecamp/fizzy/pull/464))
+
+**Problem**: Bulk operations (closing 50 cards) need user confirmation, but single-item operations shouldn't require extra clicks.
+
+**Solution**: Commands declare whether they need confirmation. The controller returns HTTP 409 Conflict for unconfirmed bulk operations:
 
 ```ruby
 # Controller
@@ -240,9 +264,11 @@ module Command::Cards
 end
 ```
 
-Uses HTTP 409 Conflict for "needs confirmation" state - stateless, no server-side session needed.
+**Why HTTP 409?** It's stateless—no server-side session needed. The frontend shows a confirmation dialog, then resubmits with `confirmed=true`. The command title (returned in the response body) is shown in the confirmation prompt.
 
 ## Filter Registry Pattern ([#857](https://github.com/basecamp/fizzy/pull/857))
+
+**Context**: LLM tools need to filter records based on user queries ("show me cards tagged 'bug' created after January"). This pattern keeps filter logic organized and reusable.
 
 ```ruby
 class Ai::Tool::Filter
@@ -273,9 +299,13 @@ class CardFilter < Ai::Tool::Filter
 end
 ```
 
+**Note**: Filters are currently namespaced per-tool as an experimental approach. The plan is to move them to model-level `filtered_by(**filters)` methods once the patterns stabilize for API use.
+
 ## Order Clause Parser ([#857](https://github.com/basecamp/fizzy/pull/857))
 
-Safely parse user-provided sort strings:
+**Problem**: LLMs may request sorting like "order by created_at desc, name asc". You need to safely parse this without SQL injection risk.
+
+**Solution**: Whitelist permitted columns and validate direction:
 
 ```ruby
 class OrderClause
@@ -307,7 +337,7 @@ ordered_by = OrderClause.parse(
 )
 ```
 
-Security: whitelist permitted columns, validate direction.
+**Security**: Both column names and directions are strictly validated. Unpermitted columns or invalid directions raise `ArgumentError`. Default ordering ensures consistent results even when no sort is specified.
 
 ## Code Review Culture
 
